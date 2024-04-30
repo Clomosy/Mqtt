@@ -9,57 +9,85 @@ var
  clomosyImg : TclProImg;
  getMsjLayout : TclLayout;
  msj : String;
+ testCombo : TClComboBox;
+ QMemList:TclJSonQuery;
+ 
+ procedure VirtualKeyboardShow;
+begin
+  //getMsjLayout.Align := alMostTop;
+  getMsjLayout.Margins.Bottom := MyForm.clVKBoundsHeight;
+end;
 
- procedure MemMsgEnter;
- begin
- getMsjLayout.Align:=alMostTop;
- end;
-
- Procedure MyMQTTStatusChanged;
- begin
-   If MyMQTT.Connected Then 
+procedure VirtualKeyboardHidden;
+begin
+   //getMsjLayout.Align := alBottom;
+   getMsjLayout.Margins.Bottom := 5;
+end;
+ procedure MyMQTTStatusChanged;
+ begin 
+  if MyMQTT.Connected then 
    begin 
    LblDisplay.Text := 'Connected' ;
    LblDisplay.TextSettings.FontColor := clAlphaColor.clHexToColor('#0d7d0b');
-   end
+   end;
    Else 
-   begin
+   begin 
    LblDisplay.Text := 'Not Connected';
    LblDisplay.TextSettings.FontColor := clAlphaColor.clHexToColor('#7a1209');
-
+   try
+   
+      LblDisplay.Text := 'Trying To Connect';
+      if Not MyMQTT.Connected then
+      begin
+       MyMQTT.Connect;
+     end; 
+   
+   except
+   
+     ShowMessage('İnternet bağlantınızı kontrol ediniz... ' + 'Exception Class: ' + LastExceptionClassName + ' Exception Message: ' + LastExceptionMessage);
    end;
-   //ShowMessage('MyMQTTStatusChanged');
- End;
-
- Procedure MyMQTTPublishReceived;
+   end;
+ end;
+ procedure MyMQTTPublishReceived;
  begin
    msj := Clomosy.AppUserDisplayName;
-   If MyMQTT.ReceivedAlright Then Begin
+   if MyMQTT.ReceivedAlright then
+   begin
 
      MsgList.Lines.Add('                   ' + MyMQTT.ReceivedMessage);
-   End;
- End;
-
- Procedure BtnSendClick;
+   end;
+ end;
+ procedure BtnSendClick;
  begin
   if Trim(MemMsg.Text) = '' then
     ShowMessage('Lütfen mesaj kısmını boş bırakmayınız.');
   else
   begin
-   MyMQTT.Send(Clomosy.AppUserDisplayName+' : '+MemMsg.Text);
-   MsgList.Lines.Add('You: '+MemMsg.Text);
-   MemMsg.Text := '';
-    getMsjLayout.Align:=alBottom;
-    MsgList.setFocus;
+      try
+      
+        MyMQTT.Send(Clomosy.AppUserDisplayName+' : '+MemMsg.Text);
+        MsgList.Lines.Add('You: '+MemMsg.Text);
+        MemMsg.Text := '';
+        getMsjLayout.Align:=alBottom;
+        MsgList.setFocus;
+      
+      except
+        
+          ShowMessage('Mesaj gönderilemedi... İnternet bağlantınızı kontrol ediniz... ' + 'Exception Class: ' + LastExceptionClassName + ' Exception Message: ' + LastExceptionMessage);
+        end;
   end;
- End;
-
+ end;
 begin
+
  MyForm := TCLForm.Create(Self);
+ MyForm.SetFormBGImage('https://clomosy.com/demos/chatGreen.png');
+
+ MyForm.AddNewEvent(MyForm,tbeOnVirtualKeyboardShown,'VirtualKeyboardShow');
+ MyForm.AddNewEvent(MyForm,tbeOnVirtualKeyboardHidden,'VirtualKeyboardHidden');
 
  bigPanel:=MyForm.AddNewProPanel(MyForm,'bigPanel');
  clComponent.SetupComponent(bigPanel,'{"Align" : "Client","MarginBottom":10,"MarginTop":10,"MarginLeft":10,
-"MarginRight":10,"RoundHeight":10,"RoundWidth":10,"BorderColor":"#5f00bf","BorderWidth":2}');
+"MarginRight":10,"RoundHeight":10,"RoundWidth":15,"BorderColor":"#0d0d0d","BorderWidth":2}');
 
  LblDisplay:= MyForm.AddNewLabel(bigPanel,'LblDisplay','--');
  LblDisplay.Align := alTop;
@@ -69,8 +97,8 @@ begin
  LblDisplay.TextSettings.Font.Size := 13;
 
  MyMQTT := MyForm.AddNewMQTTConnection(bigPanel,'MyMQTT');
-MyForm.AddNewEvent(MyMQTT,tbeOnMQTTStatusChanged,'MyMQTTStatusChanged');
-MyForm.AddNewEvent(MyMQTT,tbeOnMQTTPublishReceived,'MyMQTTPublishReceived');
+ MyForm.AddNewEvent(MyMQTT,tbeOnMQTTStatusChanged,'MyMQTTStatusChanged');
+ MyForm.AddNewEvent(MyMQTT,tbeOnMQTTPublishReceived,'MyMQTTPublishReceived');
 
  MyMQTT.Channel := 'chat';//project guid + channel
  MyMQTT.Connect;
@@ -83,6 +111,7 @@ MyForm.AddNewEvent(MyMQTT,tbeOnMQTTPublishReceived,'MyMQTTPublishReceived');
  MsgList.Margins.Right := 10;
  MsgList.TextSettings.WordWrap := True;
  MsgList.ReadOnly := True;
+ //MsgList.Enabled := False;
 
  getMsjLayout := MyForm.AddNewLayout(bigPanel,'getMsjLayout');
  getMsjLayout.Align:=alBottom;
@@ -98,9 +127,8 @@ MyForm.AddNewEvent(MyMQTT,tbeOnMQTTPublishReceived,'MyMQTTPublishReceived');
  MyForm.AddNewEvent(BtnSend,tbeOnClick,'BtnSendClick');
 
  msjBoxPanel:=MyForm.AddNewProPanel(getMsjLayout,'msjBoxPanel');
- clComponent.SetupComponent(msjBoxPanel,'{"Align" : "Left","RoundHeight":15,"Width" :240,"Height":30,
-   "MarginLeft":10,"MarginBottom":20,"MarginTop":20,
-   "RoundWidth":15,"BorderColor":"#bf00bf","BorderWidth":1}');
+ clComponent.SetupComponent(msjBoxPanel,'{"Align" : "Client","RoundHeight":15,"Height":'+IntToStr(getMsjLayout.Height/2)+',
+ "MarginLeft":10,"MarginBottom":20,"MarginTop":20,"RoundWidth":15,"BorderColor":"#3cad83","BorderWidth":1}');
 
  MemMsg:= MyForm.AddNewMemo(msjBoxPanel,'MemMsg','');
  MemMsg.Align := alClient;
@@ -109,8 +137,9 @@ MyForm.AddNewEvent(MyMQTT,tbeOnMQTTPublishReceived,'MyMQTTPublishReceived');
  MemMsg.Margins.Bottom := 5;
  MemMsg.Margins.Top := 5;
  MemMsg.TextSettings.WordWrap := True;
- MyForm.AddNewEvent(MemMsg,tbeOnEnter,'MemMsgEnter');
-
- MyForm.SetFormBGImage('https://clomosy.com/educa/bg2.png');
- MyForm.Run;
-End;
+ 
+ if Clomosy.PlatformIsMobile then
+  MyForm.Run;
+ else
+  MyForm.RunModal;
+end;

@@ -9,51 +9,78 @@ var
  clomosyImg : TclProImg;
  getMsjLayout : TclLayout;
  msj : String;
+ testCombo : TClComboBox;
+ QMemList:TclJSonQuery;
+ 
+ void VirtualKeyboardShow;
+{
+  //getMsjLayout.Align = alMostTop;
+  getMsjLayout.Margins.Bottom = MyForm.clVKBoundsHeight;
+}
 
- void MemMsgEnter;
- {
- getMsjLayout.Align=alMostTop;
- }
-
+void VirtualKeyboardHidden;
+{
+   //getMsjLayout.Align = alBottom;
+   getMsjLayout.Margins.Bottom = 5;
+}
  void MyMQTTStatusChanged;
- {
-   if (MyMQTT.Connected ) 
+ { 
+  if (MyMQTT.Connected) 
    { 
    LblDisplay.Text = 'Connected' ;
    LblDisplay.TextSettings.FontColor = clAlphaColor.clHexToColor('#0d7d0b');
    }
    Else 
-   {
+   { 
    LblDisplay.Text = 'Not Connected';
    LblDisplay.TextSettings.FontColor = clAlphaColor.clHexToColor('#7a1209');
-
+   try
+      LblDisplay.Text = 'Trying To Connect';
+      if (Not MyMQTT.Connected)
+      {
+       MyMQTT.Connect;
+      } 
+   except
+     ShowMessage('İnternet bağlantınızı kontrol ediniz... ' + 'Exception Class: ' + LastExceptionClassName + ' Exception Message: ' + LastExceptionMessage);
    }
-   //ShowMessage('MyMQTTStatusChanged');
+   }
  }
-
  void MyMQTTPublishReceived;
  {
    msj = Clomosy.AppUserDisplayName;
-   if(MyMQTT.ReceivedAlright) 
-   {
+   if (MyMQTT.ReceivedAlright) {
+
      MsgList.Lines.Add('                   ' + MyMQTT.ReceivedMessage);
    }
  }
-
  void BtnSendClick;
  {
-  MyMQTT.Send(Clomosy.AppUserDisplayName+' : '+MemMsg.Text);
-  MsgList.Lines.Add('You: '+MemMsg.Text);
-  MemMsg.Text = ' ';
-  getMsjLayout.Align=alBottom;
-  MsgList.setFocus;
+  if (Trim(MemMsg.Text) == '')
+    ShowMessage('Lütfen mesaj kısmını boş bırakmayınız.');
+  else
+  {
+      try
+        MyMQTT.Send(Clomosy.AppUserDisplayName+' : '+MemMsg.Text);
+        MsgList.Lines.Add('You: '+MemMsg.Text);
+        MemMsg.Text = '';
+        getMsjLayout.Align=alBottom;
+        MsgList.setFocus;
+      except
+          ShowMessage('Mesaj gönderilemedi... İnternet bağlantınızı kontrol ediniz... ' + 'Exception Class: ' + LastExceptionClassName + ' Exception Message: ' + LastExceptionMessage);
+        }
+  }
  }
 {
+
  MyForm = TCLForm.Create(Self);
+ MyForm.SetFormBGImage('https://clomosy.com/demos/chatGreen.png');
+
+ MyForm.AddNewEvent(MyForm,tbeOnVirtualKeyboardShown,'VirtualKeyboardShow');
+ MyForm.AddNewEvent(MyForm,tbeOnVirtualKeyboardHidden,'VirtualKeyboardHidden');
 
  bigPanel=MyForm.AddNewProPanel(MyForm,'bigPanel');
  clComponent.SetupComponent(bigPanel,'{"Align" : "Client","MarginBottom":10,"MarginTop":10,"MarginLeft":10,
-"MarginRight":10,"RoundHeight":10,"RoundWidth":10,"BorderColor":"#5f00bf","BorderWidth":2}');
+"MarginRight":10,"RoundHeight":10,"RoundWidth":15,"BorderColor":"#0d0d0d","BorderWidth":2}');
 
  LblDisplay= MyForm.AddNewLabel(bigPanel,'LblDisplay','--');
  LblDisplay.Align = alTop;
@@ -77,6 +104,7 @@ var
  MsgList.Margins.Right = 10;
  MsgList.TextSettings.WordWrap = True;
  MsgList.ReadOnly = True;
+ //MsgList.Enabled = False;
 
  getMsjLayout = MyForm.AddNewLayout(bigPanel,'getMsjLayout');
  getMsjLayout.Align=alBottom;
@@ -92,9 +120,8 @@ var
  MyForm.AddNewEvent(BtnSend,tbeOnClick,'BtnSendClick');
 
  msjBoxPanel=MyForm.AddNewProPanel(getMsjLayout,'msjBoxPanel');
- clComponent.SetupComponent(msjBoxPanel,'{"Align" : "Left","RoundHeight":15,"Width" :240,"Height":30,
-   "MarginLeft":10,"MarginBottom":20,"MarginTop":20,
-   "RoundWidth":15,"BorderColor":"#bf00bf","BorderWidth":1}');
+ clComponent.SetupComponent(msjBoxPanel,'{"Align" : "Client","RoundHeight":15,"Height":'+IntToStr(getMsjLayout.Height/2)+',
+ "MarginLeft":10,"MarginBottom":20,"MarginTop":20,"RoundWidth":15,"BorderColor":"#3cad83","BorderWidth":1}');
 
  MemMsg= MyForm.AddNewMemo(msjBoxPanel,'MemMsg','');
  MemMsg.Align = alClient;
@@ -103,8 +130,9 @@ var
  MemMsg.Margins.Bottom = 5;
  MemMsg.Margins.Top = 5;
  MemMsg.TextSettings.WordWrap = True;
- MyForm.AddNewEvent(MemMsg,tbeOnEnter,'MemMsgEnter');
-
- MyForm.SetFormBGImage('https://clomosy.com/educa/bg2.png');
- MyForm.Run;
+ 
+ if (Clomosy.PlatformIsMobile)
+  MyForm.Run;
+ else
+  MyForm.RunModal;
 }
